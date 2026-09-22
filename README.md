@@ -67,3 +67,9 @@ References: [Android MIDI API and virtual devices](https://developer.android.com
 JVM tests cover message fragmentation, independent running status across merged sources, real-time interleaving, system-common message lengths, SysEx framing/limits, reset behavior, timestamps, and stable endpoint keys. Android lint checks the application and manifest. These checks cannot establish real MIDI latency or Samsung background behavior.
 
 Hardware acceptance checks are in [TESTING.md](TESTING.md). No Android device was connected to ADB during initial development, so on-device behavior must still be verified.
+
+## License
+
+My MIDI Hub is licensed under the [MIT License](LICENSE).
+
+The bundled Gradle wrapper retains its upstream Apache-2.0 license; third-party components retain their respective licenses.

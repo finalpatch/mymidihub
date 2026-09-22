@@ -1,0 +1,132 @@
+name: Publish Android release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    defaults:
+      run:
+        shell: bash
+    env:
+      RELEASE_TAG: ${{ github.ref_name }}
+      BUILD_TOOLS_VERSION: '35.0.0'
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Validate version tag
+        run: |
+          if [[ ! "$RELEASE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo '::error::Release tags must use vMAJOR.MINOR.PATCH, for example v0.1.2.'
+            exit 1
+          fi
+
+      - name: Set up Java
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+          cache-dependency-path: |
+            **/*.gradle.kts
+            gradle.properties
+            gradle/wrapper/gradle-wrapper.properties
+
+      - name: Install Android SDK packages
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            'platforms;android-36' "build-tools;$BUILD_TOOLS_VERSION"
+
+      - name: Test, lint, and build release APK
+        run: ./gradlew --no-daemon :app:testDebugUnitTest :app:lintRelease :app:assembleRelease
+
+      - name: Check APK version against tag
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          metadata = json.loads(Path('app/build/outputs/apk/release/output-metadata.json').read_text())
+          elements = metadata['elements']
+          if len(elements) != 1:
+              raise SystemExit('Expected one universal APK')
+          apk = elements[0]
+          expected = os.environ['RELEASE_TAG'][1:]
+          if apk['versionName'] != expected:
+              raise SystemExit(f"Tag version {expected} does not match APK version {apk['versionName']}. Update app/build.gradle.kts before tagging.")
+          if apk['versionCode'] < 1:
+              raise SystemExit('versionCode must be positive')
+          print(f"Verified {metadata['applicationId']} version {expected}, versionCode {apk['versionCode']}")
+          PY
+
+      - name: Sign and verify APK
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          for name in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::Missing repository secret: $name. See RELEASING.md."
+              exit 1
+            fi
+          done
+
+          umask 077
+          signing_dir="$(mktemp -d "$RUNNER_TEMP/mymidihub-signing.XXXXXX")"
+          trap 'rm -rf -- "$signing_dir"' EXIT
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$signing_dir/release.jks"
+
+          tools="$ANDROID_HOME/build-tools/$BUILD_TOOLS_VERSION"
+          mkdir -p dist
+          apk="dist/MyMidiHub-$RELEASE_TAG.apk"
+          "$tools/zipalign" -f -P 16 4 \
+            app/build/outputs/apk/release/app-release-unsigned.apk "$signing_dir/aligned.apk"
+          "$tools/apksigner" sign \
+            --ks "$signing_dir/release.jks" \
+            --ks-key-alias "$ANDROID_KEY_ALIAS" \
+            --ks-pass env:ANDROID_KEYSTORE_PASSWORD \
+            --key-pass env:ANDROID_KEY_PASSWORD \
+            --out "$apk" "$signing_dir/aligned.apk"
+          "$tools/apksigner" verify --verbose "$apk"
+          "$tools/zipalign" -c -P 16 4 "$apk"
+          (cd dist && sha256sum "MyMidiHub-$RELEASE_TAG.apk" > "MyMidiHub-$RELEASE_TAG.apk.sha256")
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          # Upload everything to a draft first; only publish once both assets exist.
+          # A failed draft can be retried, but published releases are not overwritten.
+          if draft="$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft 2>/dev/null)"; then
+            if [[ "$draft" != true ]]; then
+              echo '::error::This tag already has a published release. Use a new version tag.'
+              exit 1
+            fi
+            gh release upload "$RELEASE_TAG" \
+              "dist/MyMidiHub-$RELEASE_TAG.apk" "dist/MyMidiHub-$RELEASE_TAG.apk.sha256" --clobber
+          else
+            gh release create "$RELEASE_TAG" \
+              "dist/MyMidiHub-$RELEASE_TAG.apk" "dist/MyMidiHub-$RELEASE_TAG.apk.sha256" \
+              --verify-tag --draft --title "My MIDI Hub $RELEASE_TAG" --generate-notes
+          fi
+          gh release edit "$RELEASE_TAG" --draft=false

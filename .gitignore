@@ -4,3 +4,6 @@
 local.properties
 *.jks
 *.keystore
+*.jks.b64
+*.keystore.b64
+dist/

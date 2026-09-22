@@ -15,7 +15,7 @@ A small native Kotlin Android MIDI 1.0 router for personal use. Sources appear o
 
 ## Install and use
 
-Build the debug APK (see below), copy it to the phone, and open it with Android's package installer. Launch **My MIDI Hub** to start routing. Allow notifications to get a visible background indicator and Stop action.
+Download an APK from [GitHub Releases](https://github.com/finalpatch/mymidihub/releases) when available, or build the debug APK (see below). Copy it to the phone and open it with Android's package installer. Launch **My MIDI Hub** to start routing. Allow notifications to get a visible background indicator and Stop action.
 
 1. Connect USB MIDI devices or open the music apps whose ports you want to use.
 2. Drag from a source on the left to a destination on the right. Repeat for additional routes. **Routes → Add route** provides the same operation through native dialogs.
@@ -43,6 +43,8 @@ Requires JDK 17+, Android SDK platform 36, and Build Tools 35.0.0. Set `ANDROID_
 ```
 
 APK: `app/build/outputs/apk/debug/app-debug.apk`.
+
+For maintainers, [RELEASING.md](RELEASING.md) explains signing-key setup and publishing a signed APK automatically by pushing a version tag.
 
 The checked-in wrapper pins Gradle 8.13 and verifies its distribution checksum. The project uses AGP 8.13.2 and Kotlin 2.3.0, targets Android 16 / API 36, and supports Android 8 / API 26 and newer. On Termux, the SDK must have working ARM64 build tools; the existing user Gradle configuration supplies the Termux `aapt2` override. No Termux-specific absolute paths are committed.
 

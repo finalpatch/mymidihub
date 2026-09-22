@@ -1,0 +1,12 @@
+<devices>
+    <device manufacturer="" product="My MIDI Hub" name="My MIDI Hub" serial_number="com.mymidihub.virtual.v1">
+        <input-port name="Hub In 1" /><input-port name="Hub In 2" />
+        <input-port name="Hub In 3" /><input-port name="Hub In 4" />
+        <input-port name="Hub In 5" /><input-port name="Hub In 6" />
+        <input-port name="Hub In 7" /><input-port name="Hub In 8" />
+        <output-port name="Hub Out 1" /><output-port name="Hub Out 2" />
+        <output-port name="Hub Out 3" /><output-port name="Hub Out 4" />
+        <output-port name="Hub Out 5" /><output-port name="Hub Out 6" />
+        <output-port name="Hub Out 7" /><output-port name="Hub Out 8" />
+    </device>
+</devices>

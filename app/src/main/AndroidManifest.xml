@@ -1,0 +1,26 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-feature android:name="android.software.midi" android:required="true" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <application android:label="My MIDI Hub" android:icon="@drawable/ic_hub"
+        android:theme="@style/AppTheme" android:allowBackup="false" android:supportsRtl="true">
+        <activity android:name=".MainActivity" android:exported="true" android:resizeableActivity="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <service android:name=".RoutingService" android:exported="false" android:stopWithTask="false"
+            android:foregroundServiceType="specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="User-started continuous low-latency MIDI routing between local music apps and USB MIDI devices, including screen-off operation; does not play or record audio." />
+        </service>
+        <service android:name=".VirtualMidiService" android:exported="true"
+            android:permission="android.permission.BIND_MIDI_DEVICE_SERVICE">
+            <intent-filter><action android:name="android.media.midi.MidiDeviceService" /></intent-filter>
+            <meta-data android:name="android.media.midi.MidiDeviceService" android:resource="@xml/midi_device" />
+        </service>
+    </application>
+</manifest>
